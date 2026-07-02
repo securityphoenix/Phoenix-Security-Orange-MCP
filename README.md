@@ -18,7 +18,7 @@ covering Phoenix REST API **Enterprise v1.27**.
 - `phoenix_list_applications`, `phoenix_get_application_posture` — risk buckets, thresholds
 - `phoenix_list_components`, `phoenix_get_component_posture`
 - `phoenix_list_teams`, `phoenix_get_team_members`, `phoenix_list_users`
-- `phoenix_api_gaps` — tells the agent what the API **cannot** do, with workarounds AND the required-endpoints wishlist, so it never guesses
+- `phoenix_api_gaps` — tells the agent what the API **cannot** do, with workarounds AND the required-endpoints wishlist ([full spec](https://github.com/Security-Phoenix-demo/Phoenix-Security-CLI/blob/main/docs/REQUIRED_ENDPOINTS.md)), so it never guesses
 - `phoenix_raw_api` — authenticated escape hatch for any `/v1` endpoint
 - `phoenix_test_connection`
 
