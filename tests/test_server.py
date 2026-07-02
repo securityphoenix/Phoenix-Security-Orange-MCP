@@ -23,7 +23,9 @@ EXPECTED_READ = {
     "phoenix_raw_api",
 }
 EXPECTED_WRITE = {
-    "phoenix_create_asset", "phoenix_enrich_asset", "phoenix_add_asset_tags",
+    "phoenix_create_asset", "phoenix_enrich_asset", "phoenix_update_asset",
+    "phoenix_add_asset_tags",
+    "phoenix_add_finding", "phoenix_close_finding",
     "phoenix_enrich_finding", "phoenix_import_assets",
     "phoenix_create_application", "phoenix_update_application",
     "phoenix_add_application_tags", "phoenix_create_component",
@@ -76,6 +78,7 @@ def test_tools_have_descriptions_and_schemas():
 def test_gaps_tool_offline():
     text = _text(_call("phoenix_api_gaps", {}))
     assert "findings" in text
+    assert "requiredEndpoints" in text or "required_endpoints" in text
 
 
 def test_read_only_blocks_writes(monkeypatch):

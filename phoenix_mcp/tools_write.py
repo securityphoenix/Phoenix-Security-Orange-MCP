@@ -57,6 +57,26 @@ def phoenix_enrich_asset(
 
 
 @mcp.tool()
+def phoenix_update_asset(
+    asset_type: str,
+    attributes: dict,
+    tags: Optional[list[str]] = None,
+    installed_software: Optional[list[dict]] = None,
+    assessment_name: Optional[str] = None,
+) -> dict:
+    """PARTIALLY edit an asset: add/update attributes, tags and installed
+    software (matched by attributes, via import merge). Additive-only —
+    removing attributes/tags, changing the identity (ip/hostname/repo) or
+    deleting the asset is impossible in API v1.27; see phoenix_api_gaps
+    requiredEndpoints (PATCH/DELETE /v1/assets)."""
+    guard_write("update asset")
+    return get_client().update_asset(
+        asset_type=asset_type, attributes=attributes, tags=tags,
+        installed_software=installed_software,
+        assessment_name=assessment_name)
+
+
+@mcp.tool()
 def phoenix_add_asset_tags(
     tags: list[str],
     asset_id: Optional[str] = None,
@@ -72,6 +92,43 @@ def phoenix_add_asset_tags(
 
 
 # -- findings ------------------------------------------------------------------
+
+@mcp.tool()
+def phoenix_add_finding(
+    asset_type: str,
+    asset_attributes: dict,
+    finding: dict,
+    assessment_name: Optional[str] = None,
+) -> dict:
+    """Add a NEW vulnerability/finding to an asset (created if absent).
+    Uses import delta — never closes or alters other findings. finding
+    requires name, description, remedy, severity ("1.0"-"10.0"); optional
+    location, referenceIds (CVEs), cwes, details (dict), tags
+    ("key:value" strings). asset_attributes match/create the asset
+    (INFRA ip+hostname, CONTAINER dockerfile=image ref, ...)."""
+    guard_write("add finding")
+    return get_client().add_finding(
+        asset_type=asset_type, asset_attributes=asset_attributes,
+        finding=finding, assessment_name=assessment_name)
+
+
+@mcp.tool()
+def phoenix_close_finding(
+    finding_id: str,
+    assessment_name: str,
+    dry_run: bool = False,
+) -> dict:
+    """Close a finding. WORKAROUND: API v1.27 has no close endpoint, so this
+    re-imports the finding's asset within assessment_name (which MUST be the
+    assessment that owns the finding — closure is assessment-scoped) via
+    merge, omitting this finding; Phoenix then closes it. The asset's other
+    OPEN findings are re-sent so they stay open. Use dry_run=true first to
+    inspect the payload. For a real status API, see phoenix_api_gaps
+    requiredEndpoints."""
+    guard_write("close finding")
+    return get_client().close_finding(finding_id, assessment_name,
+                                      dry_run=dry_run)
+
 
 @mcp.tool()
 def phoenix_enrich_finding(

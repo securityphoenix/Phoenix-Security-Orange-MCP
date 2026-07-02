@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "phoenix-security-mcp"
-version = "1.0.0"
+version = "1.1.0"
 description = "MCP (Model Context Protocol) server for the Phoenix Security platform — use Phoenix from Claude, Cursor and any MCP client"
 readme = "README.md"
 license = { file = "LICENSE" }

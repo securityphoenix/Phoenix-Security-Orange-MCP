@@ -136,6 +136,25 @@ flat `"key:value"` strings.
 attributes + new attributes/tags/installedSoftware). Tag-only with a known
 ID: `phoenix_add_asset_tags` / `phx assets tag`.
 
+## 8a. add-finding
+
+Add a brand-new vulnerability to an asset (created if absent):
+`phoenix_add_finding(asset_type, asset_attributes, finding)` /
+`phx findings add --asset-type CONTAINER --asset-attr dockerfile=org/api:1.0
+--name ... --description ... --remedy ... --severity 8.5`.
+Uses import `delta` — never closes or alters other findings.
+
+## 8b. close-finding
+
+Close a finding — WORKAROUND (no close endpoint exists; it's on the
+required-endpoints list): `phoenix_close_finding(finding_id,
+assessment_name, dry_run=true)` / `phx findings close <id> --assessment
+"..." --dry-run`. Mechanism: re-imports the finding's asset within the SAME
+assessment via merge, re-sending its other OPEN findings and omitting the
+target, which Phoenix then closes. `assessment_name` MUST be the assessment
+that owns the finding. Always dry-run first and show the user what will be
+re-imported.
+
 ## 8. enrich-finding (triage)
 
 The ONLY finding write path is import-merge (no per-finding update API):

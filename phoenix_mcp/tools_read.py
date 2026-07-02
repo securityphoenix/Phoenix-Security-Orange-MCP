@@ -180,12 +180,13 @@ def phoenix_list_users(limit: Optional[int] = None) -> list:
 
 
 @mcp.tool()
-def phoenix_api_gaps() -> list:
+def phoenix_api_gaps() -> dict:
     """List operations that are NOT possible in Phoenix API v1.27 (finding
     status updates, asset deletion, app deletion, ...) with the recommended
-    workaround for each. Consult this before attempting an unusual write."""
-    from phoenix_cli.gaps import GAPS
-    return GAPS
+    workaround for each, plus requiredEndpoints — the endpoints the API
+    should add. Consult this before attempting an unusual write."""
+    from phoenix_cli.gaps import GAPS, REQUIRED_ENDPOINTS
+    return {"gaps": GAPS, "requiredEndpoints": REQUIRED_ENDPOINTS}
 
 
 @mcp.tool()

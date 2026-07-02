@@ -8,7 +8,7 @@ description: Use when asked about security posture, assets, vulnerabilities, fin
 ## Overview
 
 Query and automate the Phoenix Security platform through the
-`phoenix-security` MCP server (31 `phoenix_*` tools) or the `phx` CLI.
+`phoenix-security` MCP server (34 `phoenix_*` tools) or the `phx` CLI.
 Core principle: **use the platform's data, and when the API can't do
 something, say so with the documented workaround — never invent endpoints.**
 
@@ -31,7 +31,10 @@ something, say so with the documented workaround — never invent endpoints.**
 | App + assets + vulns report | posture → components → assets → findings (see workflows.md §5) | `phx apps posture --name ...` |
 | Team risk | `phoenix_list_teams` → `phoenix_search_findings(team_ids=[...])` | `phx findings list --team-id ...` |
 | Create/enrich asset | `phoenix_create_asset` / `phoenix_enrich_asset` | `phx assets create` / `enrich` |
+| Add a new vulnerability | `phoenix_add_finding` (delta — never closes others) | `phx findings add` |
+| Close a vulnerability | `phoenix_close_finding(finding_id, assessment_name)` — merge workaround, `dry_run` first | `phx findings close <id> --assessment ...` |
 | Triage/enrich finding | `phoenix_enrich_finding` (import-merge) | `phx findings enrich` |
+| Edit asset (additive) | `phoenix_update_asset` — cannot remove attrs/delete | `phx assets update` |
 | Anything unusual | check `phoenix_api_gaps` FIRST | `phx gaps` |
 
 Full step-by-step workflows, severity/EPSS conventions and required asset
