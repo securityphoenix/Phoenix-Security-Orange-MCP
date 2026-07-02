@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "phoenix-security-mcp"
+version = "1.0.0"
+description = "MCP (Model Context Protocol) server for the Phoenix Security platform — use Phoenix from Claude, Cursor and any MCP client"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Phoenix Security", email = "support@phoenix.security" },
+]
+keywords = ["phoenix-security", "mcp", "model-context-protocol", "appsec", "aspm"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+]
+dependencies = [
+    "mcp>=1.2.0",
+    "phoenix-security-cli @ git+https://github.com/Security-Phoenix-demo/Phoenix-Security-CLI",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.23",
+    "responses>=0.23",
+]
+
+[project.urls]
+Homepage = "https://phoenix.security"
+Repository = "https://github.com/Security-Phoenix-demo/Pheonix-Security-Orange-MPC"
+Documentation = "https://github.com/Security-Phoenix-demo/Pheonix-Security-Orange-MPC/tree/main/docs"
+
+[project.scripts]
+phoenix-mcp = "phoenix_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["phoenix_mcp"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
