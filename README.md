@@ -76,6 +76,18 @@ Same `command`/`args`/`env` shape in the client's MCP config (e.g.
 `.cursor/mcp.json`). Full walkthroughs for every client, plus pipx/pip and
 from-source installs: **[docs/INSTALLATION.md](docs/INSTALLATION.md)**.
 
+## AI platform skills
+
+Ready-made skills wrapping this server + the CLI for **Claude, ChatGPT
+(Custom GPTs & MCP connectors), OpenAI Codex, and Cursor** — with shared
+playbooks for find-asset, find-vulnerability, find-remediation,
+exploitable-vulnerabilities, application reports, team risk, and
+asset/finding enrichment: **[skills/](skills/)**.
+
+For ChatGPT connectors and other remote clients, the server also runs over
+HTTP: `phoenix-mcp --transport streamable-http --port 8848` (keep it behind
+TLS + auth; see [skills/chatgpt/README.md](skills/chatgpt/README.md)).
+
 ## Configuration
 
 | Environment variable | Required | Description |

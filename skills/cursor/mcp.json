@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "phoenix-security": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/Security-Phoenix-demo/Pheonix-Security-Orange-MPC",
+        "phoenix-mcp"
+      ],
+      "env": {
+        "PHOENIX_CLIENT_ID": "YOUR_CLIENT_ID",
+        "PHOENIX_CLIENT_SECRET": "YOUR_CLIENT_SECRET",
+        "PHOENIX_API_BASE_URL": "https://api.securityphoenix.cloud",
+        "PHOENIX_MCP_READ_ONLY": "true"
+      }
+    }
+  }
+}

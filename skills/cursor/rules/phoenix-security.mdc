@@ -1,0 +1,38 @@
+---
+description: Phoenix Security (ASPM) workflows — apply when the task involves security posture, assets, vulnerabilities, findings, CVEs, remediation, exploitability, or risk of applications/teams.
+alwaysApply: false
+---
+
+Use the `phoenix-security` MCP tools (`phoenix_*`); fall back to the `phx`
+CLI (`-o json`) if MCP is unavailable.
+
+Conventions: finding-search severity is 0–1000 (critical ≥ 900, high ≥ 700);
+import/write severity is a string "1.0"–"10.0"; EPSS ≥ 0.5 = likely
+exploited; default to OPEN findings; keep limits ≤ 100 and summarise rather
+than dumping JSON.
+
+Playbooks:
+- Find asset: phoenix_search_assets (types INFRA/CLOUD/WEB/CONTAINER/
+  REPOSITORY/BUILD/CODE), match key/attributes/tags; detail via
+  phoenix_get_asset.
+- Find vulnerability: phoenix_search_findings (cves, status ["OPEN"],
+  severity_score_from, application_environment_id, team_ids).
+- Remediation: phoenix_get_finding → data[].remedy (fix), location,
+  parents[] (owning app/component).
+- Exploitable now: OPEN + zero_day_alert=true, plus OPEN +
+  epss_score_from "0.5"; rank EPSS × severity; flag exposed/EXTERNAL.
+- App report: list_applications (resolve name) → get_application_posture →
+  list_components(parent_id) → search_assets(application_environment_id) →
+  search_findings(...) → summary + remediation shortlist.
+- Create/enrich asset: phoenix_create_asset / phoenix_enrich_asset
+  (INFRA ip+hostname; CLOUD providerType+providerAccountId; CONTAINER
+  dockerfile = image reference e.g. myorg/api:2.0; REPOSITORY repository).
+  Safe upsert by attributes.
+- Enrich finding: phoenix_enrich_finding (import-merge; needs asset
+  attributes + name/description/remedy/severity). From a finding ID: get
+  finding → exact data[].name + assetId → get asset → use its attributes;
+  a changed name creates a NEW finding.
+
+API v1.27 cannot: change finding status/severity/comments, delete assets or
+remove asset tags, delete apps/teams/users, list scanner types. Check
+phoenix_api_gaps and state the workaround — never invent endpoints.
