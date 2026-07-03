@@ -1,11 +1,15 @@
 """MCP server core: FastMCP instance, lazy Phoenix client, write guard.
 
-Configuration is environment-based (standard for MCP servers):
+Configuration is environment-based (standard for MCP servers). Variables are
+read from the OS environment; a `.env` file (in the cwd/parents, or
+PHOENIX_MCP_ENV_FILE) is loaded as a fallback WITHOUT overriding anything the
+MCP client already passed:
     PHOENIX_CLIENT_ID       required
     PHOENIX_CLIENT_SECRET   required
     PHOENIX_API_BASE_URL    optional (default: https://api.securityphoenix.cloud)
     PHOENIX_MCP_READ_ONLY   optional ("true" disables all write tools)
     PHOENIX_MCP_MAX_ITEMS   optional (default cap for list results, 100)
+    PHOENIX_MCP_ENV_FILE    optional (explicit path to a .env file)
 """
 
 import os
@@ -14,6 +18,12 @@ from mcp.server.fastmcp import FastMCP
 
 from phoenix_cli import PhoenixClient
 from phoenix_cli.errors import PhoenixError
+
+from phoenix_mcp.dotenv import load_dotenv
+
+# Best-effort: populate missing env vars from a .env file. Real environment
+# variables (e.g. an MCP client's `env` block) always take precedence.
+load_dotenv()
 
 mcp = FastMCP(
     "Phoenix Security",

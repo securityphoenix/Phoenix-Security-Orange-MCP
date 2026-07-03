@@ -97,6 +97,12 @@ TLS + auth; see [skills/chatgpt/README.md](skills/chatgpt/README.md)).
 | `PHOENIX_API_BASE_URL` | — | Default `https://api.securityphoenix.cloud`; demo: `https://api.demo.appsecphx.io`; PoC: `https://api.poc1.appsecphx.io`; dedicated: `https://api.<tenant>.securityphoenix.cloud` |
 | `PHOENIX_MCP_READ_ONLY` | — | `true` = disable all write tools (recommended to start) |
 | `PHOENIX_MCP_MAX_ITEMS` | — | Default cap for list results (default 100) |
+| `PHOENIX_MCP_ENV_FILE` | — | Explicit path to a `.env` file to load |
+
+Credentials can also live in a **`.env` file** (`cp .env.example .env`, then
+edit) — the server loads it automatically from the working directory or a
+parent, without overriding real environment variables. `.env` is git-ignored;
+never commit it.
 
 ## Design notes
 

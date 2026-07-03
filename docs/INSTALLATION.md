@@ -50,6 +50,25 @@ uv venv && uv pip install -e ".[dev]"
 pytest
 ```
 
+## Using a .env file
+
+Instead of exporting variables or embedding them in a client config, you can
+keep credentials in a `.env` file. The server loads it automatically from the
+current directory (or any parent, or `PHOENIX_MCP_ENV_FILE=/path/to/.env`),
+and only fills variables that aren't already set — so an MCP client's own
+`env` block always wins.
+
+```bash
+cp .env.example .env      # then edit .env with your credentials
+chmod 600 .env            # keep it private
+phoenix-mcp               # picks up .env from this directory
+```
+
+`.env` is git-ignored — never commit it. `.env.example` is the safe,
+committable template. When launching via `uvx` from an arbitrary directory,
+either `cd` into the folder holding `.env` first, or set
+`PHOENIX_MCP_ENV_FILE` to its absolute path.
+
 ---
 
 ## Client configuration
