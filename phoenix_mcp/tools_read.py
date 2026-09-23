@@ -180,6 +180,15 @@ def phoenix_list_users(limit: Optional[int] = None) -> list:
 
 
 @mcp.tool()
+def phoenix_get_campaign_stats(campaign_id: str) -> dict:
+    """Aggregated statistics for a campaign by its Phoenix ID (UUID): risk and
+    riskMagnitude, finding/asset counts, outside-SLA count, ticket summary and
+    severity breakdown (findingStats). Read-only. `stats` may be null if no
+    daily snapshot has been generated for the campaign yet."""
+    return get_client().get_campaign_stats(campaign_id)
+
+
+@mcp.tool()
 def phoenix_api_gaps() -> dict:
     """List operations that are NOT possible in Phoenix API v1.27 (finding
     status updates, asset deletion, app deletion, ...) with the recommended

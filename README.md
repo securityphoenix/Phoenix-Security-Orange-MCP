@@ -11,13 +11,14 @@ covering Phoenix REST API **Enterprise v1.27**.
 
 ## What your AI agent can do
 
-**Read / analyse (15 tools)**
+**Read / analyse (16 tools)**
 
 - `phoenix_search_findings` — every v1.27 filter: severity, CVE, EPSS, SLA breach, scanner, tags, teams…
 - `phoenix_search_assets`, `phoenix_get_asset`, `phoenix_get_finding`
 - `phoenix_list_applications`, `phoenix_get_application_posture` — risk buckets, thresholds
 - `phoenix_list_components`, `phoenix_get_component_posture`
 - `phoenix_list_teams`, `phoenix_get_team_members`, `phoenix_list_users`
+- `phoenix_get_campaign_stats` — aggregated campaign statistics (risk, finding/asset/SLA counts, ticket summary) by campaign ID (post-v1.27)
 - `phoenix_api_gaps` — tells the agent what the API **cannot** do, with workarounds AND the required-endpoints wishlist ([full spec](https://github.com/Security-Phoenix-demo/Phoenix-Security-CLI/blob/main/docs/REQUIRED_ENDPOINTS.md)), so it never guesses
 - `phoenix_raw_api` — authenticated escape hatch for any `/v1` endpoint
 - `phoenix_test_connection`

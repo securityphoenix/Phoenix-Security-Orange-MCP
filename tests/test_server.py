@@ -19,7 +19,8 @@ EXPECTED_READ = {
     "phoenix_list_applications", "phoenix_get_application",
     "phoenix_get_application_posture", "phoenix_list_components",
     "phoenix_get_component_posture", "phoenix_list_teams",
-    "phoenix_get_team_members", "phoenix_list_users", "phoenix_api_gaps",
+    "phoenix_get_team_members", "phoenix_list_users",
+    "phoenix_get_campaign_stats", "phoenix_api_gaps",
     "phoenix_raw_api",
 }
 EXPECTED_WRITE = {
