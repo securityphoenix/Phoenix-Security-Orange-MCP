@@ -16,15 +16,15 @@ covering Phoenix REST API **Enterprise v1.27**.
 - `phoenix_search_findings` — every v1.27 filter: severity, CVE, EPSS, SLA breach, scanner, tags, teams…
 - `phoenix_search_assets`, `phoenix_get_asset`, `phoenix_get_finding`
 - `phoenix_list_applications`, `phoenix_get_application_posture` — risk buckets, thresholds
-- `phoenix_list_components`, `phoenix_get_component_posture`
+- `phoenix_list_components` (incl. `effectiveExposure`: calculated, else declared), `phoenix_get_component_posture`
 - `phoenix_list_teams`, `phoenix_get_team_members`, `phoenix_list_users`
 - `phoenix_api_gaps` — tells the agent what the API **cannot** do, with workarounds AND the required-endpoints wishlist ([full spec](https://github.com/Security-Phoenix-demo/Phoenix-Security-CLI/blob/main/docs/REQUIRED_ENDPOINTS.md)), so it never guesses
 - `phoenix_raw_api` — authenticated escape hatch for any `/v1` endpoint
 - `phoenix_test_connection`
 
-**Write / automate (19 tools, disable with `PHOENIX_MCP_READ_ONLY=true`)**
+**Write / automate (20 tools, disable with `PHOENIX_MCP_READ_ONLY=true`)**
 
-- Asset lifecycle: `phoenix_create_asset`, `phoenix_update_asset` (additive edit), `phoenix_enrich_asset`, `phoenix_add_asset_tags`
+- Asset lifecycle: `phoenix_create_asset`, `phoenix_update_asset` (additive edit), `phoenix_enrich_asset`, `phoenix_add_asset_tags`, `phoenix_remove_asset_tags`
 - Vulnerability lifecycle: `phoenix_add_finding` (delta), `phoenix_close_finding` (merge workaround, dry-run support), `phoenix_enrich_finding`, bulk `phoenix_import_assets`
 - Structure: `phoenix_create_application`, `phoenix_update_application`, `phoenix_add_application_tags`, `phoenix_create_component`, `phoenix_add_component_rules`, `phoenix_link_repository`
 - People: `phoenix_create_team`, `phoenix_add_team_members`, `phoenix_set_team_auto_link_tags`, `phoenix_create_user`, `phoenix_set_users_active`

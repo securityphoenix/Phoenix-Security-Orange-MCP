@@ -63,7 +63,7 @@ asset → use its attributes. A changed name CREATES a new finding.
 ## Hard limits of Phoenix API v1.27 — never invent these
 
 Finding status change / risk-accept / false-positive / comments; per-finding
-severity override; asset delete, asset tag removal, direct asset attribute
+severity override; asset delete, direct asset attribute
 edit; application/environment delete; team delete/rename; user delete or
 role change; scanner-type listing. When asked, state the limitation and
 offer the documented workaround (import-merge enrichment, or the platform
