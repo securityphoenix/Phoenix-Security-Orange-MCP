@@ -35,6 +35,7 @@ something, say so with the documented workaround — never invent endpoints.**
 | Close a vulnerability | `phoenix_close_finding(finding_id, assessment_name)` — merge workaround, `dry_run` first | `phx findings close <id> --assessment ...` |
 | Triage/enrich finding | `phoenix_enrich_finding` (import-merge) | `phx findings enrich` |
 | Edit asset (additive) | `phoenix_update_asset` — cannot remove attrs/delete | `phx assets update` |
+| Remove asset tags | `phoenix_remove_asset_tags` — scanner/import ownership is protected | `phx assets remove-tags` |
 | Anything unusual | check `phoenix_api_gaps` FIRST | `phx gaps` |
 
 Full step-by-step workflows, severity/EPSS conventions and required asset

@@ -66,9 +66,10 @@ def phoenix_update_asset(
 ) -> dict:
     """PARTIALLY edit an asset: add/update attributes, tags and installed
     software (matched by attributes, via import merge). Additive-only —
-    removing attributes/tags, changing the identity (ip/hostname/repo) or
+    removing attributes, changing the identity (ip/hostname/repo) or
     deleting the asset is impossible in API v1.27; see phoenix_api_gaps
-    requiredEndpoints (PATCH/DELETE /v1/assets)."""
+    requiredEndpoints (PATCH/DELETE /v1/assets). Remove tags with
+    phoenix_remove_asset_tags."""
     guard_write("update asset")
     return get_client().update_asset(
         asset_type=asset_type, attributes=attributes, tags=tags,
@@ -83,12 +84,29 @@ def phoenix_add_asset_tags(
     asset_ids: Optional[list[str]] = None,
 ) -> dict:
     """Add tags ("key:value" or bare "value") to one asset (asset_id) or
-    many (asset_ids). Note: the API cannot REMOVE asset tags — see
-    phoenix_api_gaps."""
+    many (asset_ids). To remove tags, use phoenix_remove_asset_tags."""
     guard_write("add asset tags")
     result = get_client().add_asset_tags(tags, asset_id=asset_id,
                                          asset_ids=asset_ids)
     return result or {"status": "ok"}
+
+
+@mcp.tool()
+def phoenix_remove_asset_tags(
+    tags: list[str],
+    asset_id: Optional[str] = None,
+    asset_ids: Optional[list[str]] = None,
+) -> dict:
+    """Remove tags ("key:value" or bare "value") from one asset (asset_id)
+    or many (asset_ids). Only manual and dedicated REST-API tag ownership is
+    removed; scanner, system, CSV/XML import and REST bulk-import ownership
+    is protected. A bare "value" matches only a keyless tag — it is not a
+    wildcard for every tag with that value. With asset_ids, one invalid ID
+    rejects the whole request. Returns per asset-tag results with status
+    DELETED|SOURCE_REMOVED|PROTECTED|NOT_FOUND and remainingOwnership."""
+    guard_write("remove asset tags")
+    return get_client().remove_asset_tags(tags, asset_id=asset_id,
+                                          asset_ids=asset_ids)
 
 
 # -- findings ------------------------------------------------------------------

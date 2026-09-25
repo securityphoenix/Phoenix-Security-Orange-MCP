@@ -24,7 +24,7 @@ EXPECTED_READ = {
 }
 EXPECTED_WRITE = {
     "phoenix_create_asset", "phoenix_enrich_asset", "phoenix_update_asset",
-    "phoenix_add_asset_tags",
+    "phoenix_add_asset_tags", "phoenix_remove_asset_tags",
     "phoenix_add_finding", "phoenix_close_finding",
     "phoenix_enrich_finding", "phoenix_import_assets",
     "phoenix_create_application", "phoenix_update_application",
@@ -105,3 +105,65 @@ def test_end_to_end_tool_call():
     if isinstance(parsed, list):
         parsed = parsed[0]
     assert parsed["name"] == "App1"
+
+
+def _mock_token():
+    responses.get(f"{BASE}/v1/auth/access_token",
+                  json={"token": "tok", "expiry": 9999999999})
+
+
+def _json(result):
+    parsed = json.loads(_text(result))
+    if isinstance(parsed, dict) and "result" in parsed:
+        parsed = parsed["result"]
+    return parsed
+
+
+@responses.activate
+def test_remove_asset_tags_single():
+    _mock_token()
+    body = {"results": [{"entityId": "a-1",
+                         "tag": {"key": "team", "value": "platform"},
+                         "status": "DELETED", "remainingOwnership": []}]}
+    responses.patch(f"{BASE}/v1/assets/a-1/tags", json=body)
+
+    result = _json(_call("phoenix_remove_asset_tags", {
+        "tags": ["team:platform", "temporary"], "asset_id": "a-1"}))
+
+    assert result == body
+    assert json.loads(responses.calls[-1].request.body) == {
+        "tags": [{"key": "team", "value": "platform"},
+                 {"value": "temporary"}]}
+
+
+@responses.activate
+def test_remove_asset_tags_bulk():
+    _mock_token()
+    responses.patch(f"{BASE}/v1/assets/tags", json={"results": [{
+        "entityId": "a-2", "tag": {"key": "team", "value": "platform"},
+        "status": "SOURCE_REMOVED",
+        "remainingOwnership": ["SCANNER_OR_SYSTEM"]}]})
+
+    result = _json(_call("phoenix_remove_asset_tags", {
+        "tags": ["team:platform"], "asset_ids": ["a-1", "a-2"]}))
+
+    assert result["results"][0]["status"] == "SOURCE_REMOVED"
+    assert json.loads(responses.calls[-1].request.body) == {
+        "tags": [{"key": "team", "value": "platform"}],
+        "assetIds": ["a-1", "a-2"]}
+
+
+@responses.activate
+def test_list_components_keeps_null_effective_exposure():
+    _mock_token()
+    responses.get(f"{BASE}/v1/components", json={
+        "content": [{"id": "c-1", "effectiveExposure": "EXTERNAL"},
+                    {"id": "c-2", "effectiveExposure": None}],
+        "last": True, "totalPages": 1})
+
+    result = _call("phoenix_list_components", {"parent_id": "app-1"})
+    blocks = result[0] if isinstance(result, tuple) else result
+    # FastMCP emits one text block per list item.
+    items = [json.loads(block.text) for block in blocks]
+
+    assert [c["effectiveExposure"] for c in items] == ["EXTERNAL", None]

@@ -33,6 +33,6 @@ Playbooks:
   finding → exact data[].name + assetId → get asset → use its attributes;
   a changed name creates a NEW finding.
 
-API v1.27 cannot: change finding status/severity/comments, delete assets or
-remove asset tags, delete apps/teams/users, list scanner types. Check
+API v1.27 cannot: change finding status/severity/comments, delete assets,
+delete apps/teams/users, list scanner types. Check
 phoenix_api_gaps and state the workaround — never invent endpoints.

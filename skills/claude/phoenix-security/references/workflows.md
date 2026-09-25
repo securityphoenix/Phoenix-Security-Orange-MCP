@@ -134,7 +134,9 @@ flat `"key:value"` strings.
 
 **Enrich**: `phoenix_enrich_asset` / `phx assets enrich` (same matching
 attributes + new attributes/tags/installedSoftware). Tag-only with a known
-ID: `phoenix_add_asset_tags` / `phx assets tag`.
+ID: `phoenix_add_asset_tags` / `phx assets tag`. Remove tags:
+`phoenix_remove_asset_tags` / `phx assets remove-tags` (scanner/import
+ownership is protected; check each result's `status`).
 
 ## 8a. add-finding
 
@@ -183,7 +185,7 @@ are **not possible via API** — say so instead of inventing calls.
 
 Before any unusual write, check `phoenix_api_gaps` / `phx gaps`. Not
 possible in API v1.27: finding status changes, severity overrides, comments;
-asset delete / tag removal / direct attribute edit; app/env delete; team
+asset delete / direct attribute edit; app/env delete; team
 delete; user delete or role change; scanner-type listing. Each has a
 documented workaround — use it, never fabricate an endpoint.
 

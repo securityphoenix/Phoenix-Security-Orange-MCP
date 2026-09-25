@@ -140,7 +140,10 @@ def phoenix_list_components(
 ) -> list:
     """List components (of applications) and services (of environments).
     parent_id scopes to one application/environment. entity_type:
-    COMPONENT or SERVICE."""
+    COMPONENT or SERVICE.
+
+    effectiveExposure (INTERNAL|DMZ|EXTERNAL) is the exposure Phoenix
+    calculated, not one anyone declared."""
     return get_client().list_components(parent_id=parent_id,
                                         entity_type=entity_type,
                                         max_items=cap(limit))

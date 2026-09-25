@@ -32,6 +32,6 @@ Playbooks:
   a new finding instead of updating.
 
 Hard API limits (v1.27) — do NOT invent endpoints: no finding status
-change/severity override/comments, no asset delete/tag removal, no app or
+change/severity override/comments, no asset delete, no app or
 team delete, no user delete/role change. Check `phoenix_api_gaps` /
 `phx gaps` and offer the documented workaround.
