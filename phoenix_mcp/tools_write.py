@@ -4,7 +4,10 @@ structure (apps/components/rules), teams and users.
 All tools honour PHOENIX_MCP_READ_ONLY=true (they refuse with a clear error).
 """
 
+import uuid
 from typing import Optional
+
+from phoenix_cli.errors import PhoenixError
 
 from phoenix_mcp.core import get_client, guard_write, mcp
 
@@ -352,3 +355,37 @@ def phoenix_set_users_active(
         get_client().deactivate_users(ids=ids, emails=emails)
     return {"status": "activated" if active else "deactivated",
             "emails": emails or [], "ids": ids or []}
+
+
+# -- autopatcher and Copilot patch plans --------------------------------------
+
+@mcp.tool()
+def phoenix_copilot_start_patch_plan(asset_id: str) -> dict:
+    """Write (refused in read-only mode). Ask Copilot to build a patch plan
+    for an asset. Starts a background job and returns {"jobId": ...}; follow
+    it with phoenix_copilot_job_status, then read the plan with
+    phoenix_copilot_patch_plan. A person must still accept the plan in
+    Phoenix before anything runs; there is no tool to accept it. Needs the
+    Copilot external API and AI consent for the organisation."""
+    guard_write("start Copilot patch plan")
+    job_id = get_client().start_patch_plan(asset_id, str(uuid.uuid4()))
+    return {"jobId": job_id}
+
+
+@mcp.tool()
+def phoenix_submit_patch_plan(
+    asset_id: str,
+    source: str,
+    actions: list[dict],
+) -> dict:
+    """Write (refused in read-only mode). Submit a patch plan you wrote for an
+    asset. source must be "llm" (Copilot plans come from
+    phoenix_copilot_start_patch_plan). actions: catalog actions, at most 200.
+    Returns planId, revision, hash and state. A person must still accept the
+    plan in Phoenix before anything runs; there is no tool to accept it."""
+    guard_write("submit patch plan")
+    if source != "llm":
+        raise PhoenixError(
+            'source must be "llm"; Copilot plans are created with '
+            "phoenix_copilot_start_patch_plan")
+    return get_client().submit_patch_plan(asset_id, actions)

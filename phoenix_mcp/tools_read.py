@@ -209,10 +209,83 @@ def phoenix_raw_api(
 ) -> dict:
     """Escape hatch: call any Phoenix /v1 API path directly (authenticated,
     retried). method: GET|POST|PUT|PATCH|DELETE. Respects read-only mode for
-    non-GET methods. Prefer the dedicated tools when one exists."""
-    from phoenix_mcp.core import guard_write
+    non-GET methods. Refuses the routes that accept an autopatcher plan or
+    confirm an asset usage: a person does that in Phoenix. Prefer the
+    dedicated tools when one exists."""
+    from phoenix_mcp.core import guard_person_only, guard_write
+    guard_person_only(path)
     method = method.upper()
     if method != "GET":
         guard_write(f"raw {method} {path}")
     result = get_client().raw_request(method, path, json_body=json_body)
     return result if result is not None else {"status": "ok (no content)"}
+
+
+# -- autopatcher and Copilot patch plans (read-only) ---------------------------
+
+@mcp.tool()
+def phoenix_asset_lookup(
+    hostname: Optional[str] = None,
+    ip: Optional[str] = None,
+) -> dict:
+    """Read-only. Find the Phoenix assets that match a host name (or FQDN)
+    and/or an IP address. Give at least one. Returns up to 20 matches, each
+    with assetId, name, os, ips, tags, lastScanAt and matchedBy. Needs the
+    autopatcher feature switched on for the organisation."""
+    return get_client().lookup_asset(hostname=hostname, ip=ip)
+
+
+@mcp.tool()
+def phoenix_patch_policy(usage: str) -> dict:
+    """Read-only. The patch policy for an asset usage (for example server or
+    developer-laptop): rules per action type, blocked commands and software,
+    and package groups. Needs the autopatcher feature."""
+    return get_client().get_patch_policy(usage)
+
+
+@mcp.tool()
+def phoenix_patch_plan(plan_id: str) -> dict:
+    """Read-only. One autopatcher plan by ID: its state (PENDING_ACCEPTANCE or
+    ACCEPTED), hash, actions and expiry. A plan runs only after a person has
+    accepted it in Phoenix."""
+    return get_client().get_patch_plan(plan_id)
+
+
+@mcp.tool()
+def phoenix_latest_accepted_patch_plan(asset_id: str) -> dict:
+    """Read-only. The newest accepted, unexpired autopatcher plan for an
+    asset. Returns {"plan": null, "reason": "NO_VALID_PLAN"} when there is
+    none."""
+    plan = get_client().get_latest_accepted_plan(asset_id)
+    if plan is None:
+        return {"plan": None, "reason": "NO_VALID_PLAN"}
+    return plan
+
+
+@mcp.tool()
+def phoenix_copilot_job_status(job_id: str) -> dict:
+    """Read-only. State of a Copilot patch plan job: RUNNING, DONE or FAILED.
+    When DONE it carries the planId to read with
+    phoenix_copilot_patch_plan."""
+    return get_client().get_job(job_id)
+
+
+@mcp.tool()
+def phoenix_copilot_patch_plan(plan_id: str) -> dict:
+    """Read-only. A patch plan written by Copilot, by the planId from
+    phoenix_copilot_job_status: actions, finding IDs, hash, state and expiry.
+    A person must still accept it in Phoenix before anything runs."""
+    return get_client().get_copilot_patch_plan(plan_id)
+
+
+@mcp.tool()
+def phoenix_autopatch_findings(asset_id: str, page: int = 0) -> dict:
+    """Read-only. One page of the open findings of an asset, for patch
+    planning: id, title, remedyText, product, fixedVersion, versionOperator.
+    Pages start at 0; the page size follows PHOENIX_MCP_MAX_ITEMS (default
+    100). The reply carries page, size and total, so call again with the next
+    page until you have them all."""
+    size = min(cap(None), 1000)
+    return get_client().raw_request(
+        "GET", f"/v1/autopatcher/assets/{asset_id}/findings",
+        params={"page": max(int(page), 0), "size": size})

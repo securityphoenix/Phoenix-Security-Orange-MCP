@@ -22,6 +22,9 @@ EXPECTED_READ = {
     "phoenix_get_team_members", "phoenix_list_users",
     "phoenix_get_campaign_stats", "phoenix_api_gaps",
     "phoenix_raw_api",
+    "phoenix_asset_lookup", "phoenix_patch_policy", "phoenix_patch_plan",
+    "phoenix_latest_accepted_patch_plan", "phoenix_copilot_job_status",
+    "phoenix_copilot_patch_plan", "phoenix_autopatch_findings",
 }
 EXPECTED_WRITE = {
     "phoenix_create_asset", "phoenix_enrich_asset", "phoenix_update_asset",
@@ -34,6 +37,7 @@ EXPECTED_WRITE = {
     "phoenix_create_team", "phoenix_add_team_members",
     "phoenix_set_team_auto_link_tags", "phoenix_create_user",
     "phoenix_set_users_active",
+    "phoenix_copilot_start_patch_plan", "phoenix_submit_patch_plan",
 }
 
 
@@ -168,3 +172,163 @@ def test_list_components_keeps_null_effective_exposure():
     items = [json.loads(block.text) for block in blocks]
 
     assert [c["effectiveExposure"] for c in items] == ["EXTERNAL", None]
+
+
+# -- autopatcher and Copilot tools -------------------------------------------
+
+PERSON_ONLY = "this action needs a person in Phoenix"
+
+
+def _call_error(name, args):
+    try:
+        return _text(_call(name, args))
+    except Exception as exc:  # FastMCP wraps tool errors
+        return str(exc)
+
+
+def test_no_tool_accepts_a_plan_or_sets_usage():
+    names = {t.name for t in _tools()}
+    banned = {"phoenix_accept_patch_plan", "phoenix_set_asset_usage"}
+    assert not banned & names
+    assert not [n for n in names
+                if n.startswith(("phoenix_accept", "phoenix_set_usage"))
+                or "confirm_usage" in n]
+
+
+@pytest.mark.parametrize("path", [
+    "/v1/autopatcher/plans/p1/accept",
+    "/api/v1/autopatcher/plans/p1/accept",
+    "//v1//autopatcher/plans/p1/accept",
+    "/v1/autopatcher%2Fplans/p1/accept",
+    "/v1/autopatcher/plans%2Fp1%2Faccept",
+    "/v1/assets/../autopatcher/plans/p1/accept",
+    "/v1/autopatcher/plans/p1/accept/",
+    "/v1/autopatcher/plans/p1/accept?x=1",
+    "/v1/autopatcher/plans/p1/accept#frag",
+    "/V1/AutoPatcher/Plans/P1/ACCEPT",
+    "/v1/autopatcher/assets/a1/usage",
+    "/API/v1/autopatcher/assets/a1/usage/",
+    "/v1/autopatcher/assets/a1/usage?x=1",
+])
+@responses.activate
+def test_raw_api_refuses_person_only_paths(path):
+    for method in ("GET", "POST", "PUT"):
+        assert PERSON_ONLY in _call_error(
+            "phoenix_raw_api", {"method": method, "path": path})
+    assert len(responses.calls) == 0
+
+
+@pytest.mark.parametrize("path", [
+    "/v1/autopatcher/plans/p1/accept%252F",
+    "/v1/autopatcher%252Fplans/p1/accept",
+    "/v1/autopatcher/plans/p1%25/accept",
+])
+@responses.activate
+def test_raw_api_refuses_double_encoded_paths(path):
+    assert PERSON_ONLY in _call_error(
+        "phoenix_raw_api", {"method": "POST", "path": path})
+    assert len(responses.calls) == 0
+
+
+@responses.activate
+def test_raw_api_still_allows_other_paths():
+    _mock_token()
+    responses.get(f"{BASE}/v1/autopatcher/policy", json={"version": 3})
+    responses.get(f"{BASE}/v1/autopatcher/plans/p1", json={"planId": "p1"})
+    assert _json(_call("phoenix_raw_api", {
+        "method": "GET", "path": "/v1/autopatcher/policy"}))["version"] == 3
+    assert _json(_call("phoenix_raw_api", {
+        "method": "GET", "path": "/v1/autopatcher/plans/p1"}))["planId"] == "p1"
+
+
+@responses.activate
+def test_copilot_start_respects_read_only(monkeypatch):
+    monkeypatch.setenv("PHOENIX_MCP_READ_ONLY", "true")
+    assert "read-only" in _call_error(
+        "phoenix_copilot_start_patch_plan", {"asset_id": "a1"})
+    assert len(responses.calls) == 0
+
+
+@responses.activate
+def test_submit_patch_plan_respects_read_only(monkeypatch):
+    monkeypatch.setenv("PHOENIX_MCP_READ_ONLY", "true")
+    assert "read-only" in _call_error(
+        "phoenix_submit_patch_plan",
+        {"asset_id": "a1", "source": "llm", "actions": []})
+    assert len(responses.calls) == 0
+
+
+@responses.activate
+def test_copilot_start_sends_uuid_idempotency_key():
+    _mock_token()
+    responses.post(f"{BASE}/v1/copilot/patch-plans", json={"jobId": "j1"})
+    result = _json(_call("phoenix_copilot_start_patch_plan", {"asset_id": "a1"}))
+    assert result["jobId"] == "j1"
+    sent = responses.calls[-1].request
+    import uuid
+    uuid.UUID(sent.headers["Idempotency-Key"])
+    assert json.loads(sent.body)["assetId"] == "a1"
+
+
+@responses.activate
+def test_submit_patch_plan_posts_llm_plan():
+    _mock_token()
+    responses.post(f"{BASE}/v1/autopatcher/plans", json={"planId": "p1"})
+    result = _json(_call("phoenix_submit_patch_plan", {
+        "asset_id": "a1", "source": "llm", "actions": [{"id": "x"}]}))
+    assert result["planId"] == "p1"
+    assert json.loads(responses.calls[-1].request.body) == {
+        "assetId": "a1", "source": "llm", "actions": [{"id": "x"}]}
+
+
+@responses.activate
+def test_submit_patch_plan_refuses_copilot_source():
+    assert "llm" in _call_error("phoenix_submit_patch_plan", {
+        "asset_id": "a1", "source": "copilot", "actions": []})
+    assert len(responses.calls) == 0
+
+
+@responses.activate
+def test_asset_lookup_end_to_end():
+    _mock_token()
+    responses.get(f"{BASE}/v1/autopatcher/assets/lookup",
+                  json={"matches": [{"assetId": "a1", "name": "phx-alf"}]})
+    result = _json(_call("phoenix_asset_lookup", {"hostname": "phx-alf"}))
+    assert result["matches"][0]["assetId"] == "a1"
+    assert "hostname=phx-alf" in responses.calls[-1].request.url
+
+
+@responses.activate
+def test_patch_policy_plan_and_latest_accepted():
+    _mock_token()
+    responses.get(f"{BASE}/v1/autopatcher/policy", json={"version": 3})
+    responses.get(f"{BASE}/v1/autopatcher/plans/p1", json={"planId": "p1"})
+    responses.get(f"{BASE}/v1/autopatcher/assets/a1/plans/latest-accepted",
+                  status=404, json={"error": "NO_VALID_PLAN"})
+    assert _json(_call("phoenix_patch_policy", {"usage": "server"}))["version"] == 3
+    assert _json(_call("phoenix_patch_plan", {"plan_id": "p1"}))["planId"] == "p1"
+    assert _json(_call("phoenix_latest_accepted_patch_plan",
+                       {"asset_id": "a1"})) == {
+        "plan": None, "reason": "NO_VALID_PLAN"}
+
+
+@responses.activate
+def test_copilot_job_status_and_plan():
+    _mock_token()
+    responses.get(f"{BASE}/v1/copilot/jobs/j1", json={"state": "DONE", "planId": "p1"})
+    responses.get(f"{BASE}/v1/copilot/patch-plans/p1", json={"planId": "p1"})
+    assert _json(_call("phoenix_copilot_job_status", {"job_id": "j1"}))["state"] == "DONE"
+    assert _json(_call("phoenix_copilot_patch_plan", {"plan_id": "p1"}))["planId"] == "p1"
+
+
+@responses.activate
+def test_autopatch_findings_one_page():
+    _mock_token()
+    responses.get(f"{BASE}/v1/autopatcher/assets/a1/findings",
+                  json={"findings": [{"id": "f1"}], "page": 2, "size": 100,
+                        "total": 301})
+    result = _json(_call("phoenix_autopatch_findings",
+                         {"asset_id": "a1", "page": 2}))
+    assert result["total"] == 301
+    url = responses.calls[-1].request.url
+    assert "page=2" in url and "size=100" in url

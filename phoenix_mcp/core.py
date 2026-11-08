@@ -13,6 +13,9 @@ MCP client already passed:
 """
 
 import os
+import posixpath
+import re
+from urllib.parse import unquote
 
 from mcp.server.fastmcp import FastMCP
 
@@ -72,3 +75,36 @@ def cap(limit):
     if not limit or limit <= 0:
         return ceiling
     return min(int(limit), 1000)
+
+
+# Actions that only a person may take, in Phoenix: accepting an autopatcher
+# plan and confirming an asset usage. No MCP tool does either, and the raw
+# API tool refuses these paths.
+PERSON_ONLY_MESSAGE = "this action needs a person in Phoenix"
+_PERSON_ONLY_PATHS = (
+    re.compile(r"^(/api)?/v1/autopatcher/plans/[^/]+/accept$"),
+    re.compile(r"^(/api)?/v1/autopatcher/assets/[^/]+/usage$"),
+)
+
+
+def is_person_only_path(path: str) -> bool:
+    """True when ``path`` is a plan-accept or asset-usage route.
+
+    The path part only (``?query`` and ``#fragment`` dropped) is decoded once;
+    a ``%`` left after that is refused. Repeated slashes collapse, dot
+    segments resolve, a trailing slash and letter case are ignored.
+    """
+    path = re.split(r"[?#]", path or "", maxsplit=1)[0]
+    path = unquote(path)
+    if "%" in path:
+        return True
+    path = re.sub(r"/+", "/", path)
+    if not path.startswith("/"):
+        path = "/" + path
+    path = posixpath.normpath(path).rstrip("/").lower()
+    return any(rx.match(path) for rx in _PERSON_ONLY_PATHS)
+
+
+def guard_person_only(path: str):
+    if is_person_only_path(path):
+        raise PhoenixError(PERSON_ONLY_MESSAGE)

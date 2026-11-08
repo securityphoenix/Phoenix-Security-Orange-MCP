@@ -25,7 +25,7 @@ classifiers = [
 ]
 dependencies = [
     "mcp>=1.2.0,<2",
-    "phoenix-security-cli @ git+https://github.com/Security-Phoenix-demo/Phoenix-Security-CLI",
+    "phoenix-security-cli @ git+https://github.com/securityphoenix/Phoenix-Security-CLI@edb04ef18c9475e9f53a08c1a5b87c4908e9e1ab",
 ]
 
 [project.optional-dependencies]
