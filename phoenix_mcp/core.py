@@ -78,8 +78,9 @@ def cap(limit):
 
 
 # Actions that only a person may take, in Phoenix: accepting an autopatcher
-# plan and confirming an asset usage. No MCP tool does either, and the raw
-# API tool refuses these paths.
+# plan by hand and confirming an asset usage. No MCP tool does either, and the
+# raw API tool refuses these paths. (Phoenix may still accept an all-auto plan
+# by policy at creation when the organisation turned that on.)
 PERSON_ONLY_MESSAGE = "this action needs a person in Phoenix"
 _PERSON_ONLY_PATHS = (
     re.compile(r"^(/api)?/v1/autopatcher/plans/[^/]+/accept$"),

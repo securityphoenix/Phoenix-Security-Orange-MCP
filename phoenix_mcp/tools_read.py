@@ -246,8 +246,10 @@ def phoenix_patch_policy(usage: str) -> dict:
 @mcp.tool()
 def phoenix_patch_plan(plan_id: str) -> dict:
     """Read-only. One autopatcher plan by ID: its state (PENDING_ACCEPTANCE or
-    ACCEPTED), hash, actions and expiry. A plan runs only after a person has
-    accepted it in Phoenix."""
+    ACCEPTED), hash, actions and expiry. A plan runs only once it is
+    ACCEPTED: by a person in Phoenix, or by Phoenix itself at creation when
+    automatic acceptance is on for the asset's usage and every action is auto
+    (then no person has seen it)."""
     return get_client().get_patch_plan(plan_id)
 
 
@@ -274,7 +276,10 @@ def phoenix_copilot_job_status(job_id: str) -> dict:
 def phoenix_copilot_patch_plan(plan_id: str) -> dict:
     """Read-only. A patch plan written by Copilot, by the planId from
     phoenix_copilot_job_status: actions, finding IDs, hash, state and expiry.
-    A person must still accept it in Phoenix before anything runs."""
+    A person accepts it in Phoenix before anything runs, unless the
+    organisation turned on automatic acceptance for the asset's usage and
+    every action is auto: then Phoenix accepted it at creation with no
+    person."""
     return get_client().get_copilot_patch_plan(plan_id)
 
 

@@ -364,9 +364,12 @@ def phoenix_copilot_start_patch_plan(asset_id: str) -> dict:
     """Write (refused in read-only mode). Ask Copilot to build a patch plan
     for an asset. Starts a background job and returns {"jobId": ...}; follow
     it with phoenix_copilot_job_status, then read the plan with
-    phoenix_copilot_patch_plan. A person must still accept the plan in
-    Phoenix before anything runs; there is no tool to accept it. Needs the
-    Copilot external API and AI consent for the organisation."""
+    phoenix_copilot_patch_plan. No tool accepts a plan. A person accepts it
+    in Phoenix, unless the organisation turned on automatic acceptance for
+    the asset's usage and every action is auto: then Phoenix accepts it at
+    creation with no person, and a headless autopatcher run on that machine
+    applies it. Needs the Copilot external API and AI consent for the
+    organisation."""
     guard_write("start Copilot patch plan")
     job_id = get_client().start_patch_plan(asset_id, str(uuid.uuid4()))
     return {"jobId": job_id}
@@ -381,8 +384,11 @@ def phoenix_submit_patch_plan(
     """Write (refused in read-only mode). Submit a patch plan you wrote for an
     asset. source must be "llm" (Copilot plans come from
     phoenix_copilot_start_patch_plan). actions: catalog actions, at most 200.
-    Returns planId, revision, hash and state. A person must still accept the
-    plan in Phoenix before anything runs; there is no tool to accept it."""
+    Returns planId, revision, hash and state. No tool accepts a plan. A
+    person accepts it in Phoenix, unless the organisation turned on automatic
+    acceptance for the asset's usage and every action is auto: then Phoenix
+    accepts it at creation with no person (the returned state is ACCEPTED),
+    and a headless autopatcher run on that machine applies it."""
     guard_write("submit patch plan")
     if source != "llm":
         raise PhoenixError(
