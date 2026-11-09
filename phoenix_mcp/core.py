@@ -20,6 +20,7 @@ from urllib.parse import unquote
 from mcp.server.fastmcp import FastMCP
 
 from phoenix_cli import PhoenixClient
+from phoenix_cli.config import load_settings
 from phoenix_cli.errors import PhoenixError
 
 from phoenix_mcp.dotenv import load_dotenv
@@ -43,10 +44,23 @@ mcp = FastMCP(
 _client = None
 
 
+NO_API_KEY_MESSAGE = (
+    "Phoenix API key not found. This MCP server uses only an API key and "
+    "never a stored 'phx login' person token. Set PHOENIX_CLIENT_ID and "
+    "PHOENIX_CLIENT_SECRET (Organisation > API Access)."
+)
+
+
 def get_client() -> PhoenixClient:
     global _client
     if _client is None:
-        _client = PhoenixClient()  # resolves env vars / config.ini
+        # Resolve env vars / config.ini, then insist on an API key. Without
+        # one the CLI transport would fall back to the keychain login token
+        # of a person, and an agent could then act as that person.
+        settings = load_settings()
+        if not (settings.client_id and settings.client_secret):
+            raise PhoenixError(NO_API_KEY_MESSAGE)
+        _client = PhoenixClient(settings=settings)
     return _client
 
 
@@ -106,6 +120,45 @@ def is_person_only_path(path: str) -> bool:
     return any(rx.match(path) for rx in _PERSON_ONLY_PATHS)
 
 
+# Allowlist for phoenix_raw_api: only these /v1 routes, nothing else. Person
+# only routes (plan accept, usage confirm, device approval under /v1/auth) are
+# absent on purpose. The autopatcher routes are listed one by one.
+_ALLOWED_PREFIXES = (
+    "/v1/applications", "/v1/assets", "/v1/campaigns", "/v1/components",
+    "/v1/copilot", "/v1/findings", "/v1/import", "/v1/teams", "/v1/users",
+)
+_ALLOWED_AUTOPATCHER = (
+    re.compile(r"^/v1/autopatcher/policy$"),
+    re.compile(r"^/v1/autopatcher/runs$"),
+    re.compile(r"^/v1/autopatcher/plans$"),
+    re.compile(r"^/v1/autopatcher/plans/[^/]+$"),
+    re.compile(r"^/v1/autopatcher/assets/lookup$"),
+    re.compile(r"^/v1/autopatcher/assets/[^/]+/(findings|plans|plans/latest-accepted)$"),
+)
+
+
+def is_allowed_path(path: str) -> bool:
+    """True only for an ``/v1/...`` route the MCP needs (allowlist)."""
+    path = re.split(r"[?#]", path or "", maxsplit=1)[0]
+    path = unquote(path)
+    if "%" in path or ";" in path or "\\" in path or "://" in path:
+        return False
+    path = re.sub(r"/+", "/", path)
+    if not path.startswith("/"):
+        return False
+    path = posixpath.normpath(path).rstrip("/").lower()
+    if path.startswith("/api/"):
+        path = path[4:]
+    if path.startswith("/v1/autopatcher/"):
+        return any(rx.match(path) for rx in _ALLOWED_AUTOPATCHER)
+    return any(path == p or path.startswith(p + "/")
+               for p in _ALLOWED_PREFIXES)
+
+
 def guard_person_only(path: str):
     if is_person_only_path(path):
         raise PhoenixError(PERSON_ONLY_MESSAGE)
+    if not is_allowed_path(path):
+        raise PhoenixError(
+            "phoenix_raw_api blocked: path is not on the allowlist of /v1 "
+            "routes this MCP server may call.")

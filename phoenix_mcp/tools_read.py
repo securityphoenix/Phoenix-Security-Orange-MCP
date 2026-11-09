@@ -207,8 +207,8 @@ def phoenix_raw_api(
     path: str,
     json_body: Optional[dict] = None,
 ) -> dict:
-    """Escape hatch: call any Phoenix /v1 API path directly (authenticated,
-    retried). method: GET|POST|PUT|PATCH|DELETE. Respects read-only mode for
+    """Escape hatch: call an allowlisted Phoenix /v1 API path directly
+    (authenticated, retried; any other path is refused). method: GET|POST|PUT|PATCH|DELETE. Respects read-only mode for
     non-GET methods. Refuses the routes that accept an autopatcher plan or
     confirm an asset usage: a person does that in Phoenix. Prefer the
     dedicated tools when one exists."""

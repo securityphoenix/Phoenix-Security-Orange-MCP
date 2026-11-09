@@ -241,6 +241,84 @@ def test_raw_api_still_allows_other_paths():
         "method": "GET", "path": "/v1/autopatcher/plans/p1"}))["planId"] == "p1"
 
 
+@pytest.mark.parametrize("path", [
+    "/v1/auth/device/approve",
+    "/v1/auth/device",
+    "/v1/autopatcher/plans/p1/accept;x=1",
+    "/v1/autopatcher/plans/p1/accept.json",
+    "/v1/autopatcher/plans/p1/approve",
+    "/v1/autopatcher/assets/a1/usage;x=1",
+    "/v1/autopatcher\\plans\\p1\\accept",
+    "https://evil.example/v1/assets",
+    "v1/assets",
+    "/admin/operations/feature-flags",
+    "/api/v2/assets",
+    "/v1",
+    "/v1/unknown",
+])
+@responses.activate
+def test_raw_api_refuses_paths_off_the_allowlist(path):
+    for method in ("GET", "POST"):
+        err = _call_error("phoenix_raw_api", {"method": method, "path": path})
+        assert "blocked" in err or PERSON_ONLY in err
+    assert len(responses.calls) == 0
+
+
+@pytest.mark.parametrize("path", [
+    "/v1/assets", "/v1/assets/a1/tags", "/v1/findings?x=1",
+    "/api/v1/applications", "/v1/copilot/jobs/j1",
+    "/v1/autopatcher/plans", "/v1/autopatcher/assets/lookup",
+    "/v1/autopatcher/assets/a1/plans/latest-accepted",
+])
+def test_allowlist_accepts_needed_paths(path):
+    assert core.is_allowed_path(path)
+
+
+def _fake_keychain(monkeypatch):
+    """Mock the keychain: a valid person login token is 'stored'. The real
+    OS keychain is never touched."""
+    import time
+    fake = lambda base_url: ("PERSON-TOKEN", time.time() + 3600)  # noqa: E731
+    for mod in ("phoenix_cli.token_store", "phoenix_cli.config",
+                "phoenix_cli.http"):
+        monkeypatch.setattr(f"{mod}.load_token", fake, raising=False)
+
+
+def test_client_refuses_stored_person_token_without_api_key(monkeypatch):
+    _fake_keychain(monkeypatch)
+    monkeypatch.delenv("PHOENIX_CLIENT_ID")
+    monkeypatch.delenv("PHOENIX_CLIENT_SECRET")
+    monkeypatch.delenv("CLIENT_ID", raising=False)
+    monkeypatch.delenv("CLIENT_SECRET", raising=False)
+    monkeypatch.chdir("/")
+    monkeypatch.setenv("HOME", "/nonexistent")
+    from phoenix_cli.errors import PhoenixError
+    with pytest.raises(PhoenixError) as exc:
+        core.get_client()
+    assert "API key" in str(exc.value)
+    assert core._client is None
+
+
+def test_client_with_api_key_ignores_stored_person_token(monkeypatch):
+    _fake_keychain(monkeypatch)
+    client = core.get_client()
+    assert client.transport._login_token is False
+
+
+@responses.activate
+def test_raw_api_without_api_key_fails_clearly_and_sends_nothing(monkeypatch):
+    _fake_keychain(monkeypatch)
+    monkeypatch.delenv("PHOENIX_CLIENT_ID")
+    monkeypatch.delenv("PHOENIX_CLIENT_SECRET")
+    monkeypatch.delenv("CLIENT_ID", raising=False)
+    monkeypatch.delenv("CLIENT_SECRET", raising=False)
+    monkeypatch.chdir("/")
+    monkeypatch.setenv("HOME", "/nonexistent")
+    err = _call_error("phoenix_raw_api", {"method": "GET", "path": "/v1/assets"})
+    assert "API key" in err
+    assert len(responses.calls) == 0
+
+
 @responses.activate
 def test_copilot_start_respects_read_only(monkeypatch):
     monkeypatch.setenv("PHOENIX_MCP_READ_ONLY", "true")
