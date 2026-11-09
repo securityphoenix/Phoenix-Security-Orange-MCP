@@ -382,16 +382,19 @@ def phoenix_submit_patch_plan(
     actions: list[dict],
 ) -> dict:
     """Write (refused in read-only mode). Submit a patch plan you wrote for an
-    asset. source must be "llm" (Copilot plans come from
-    phoenix_copilot_start_patch_plan). actions: catalog actions, at most 200.
-    Returns planId, revision, hash and state. No tool accepts a plan. A
-    person accepts it in Phoenix, unless the organisation turned on automatic
-    acceptance for the asset's usage and every action is auto: then Phoenix
-    accepts it at creation with no person (the returned state is ACCEPTED),
-    and a headless autopatcher run on that machine applies it."""
+    asset. source: pass "mcp" ("llm" is still accepted for older callers;
+    either way Phoenix stores the plan with source "mcp", because an agent
+    wrote it). Copilot plans come from phoenix_copilot_start_patch_plan.
+    actions: catalog actions, at most 200. Returns planId, revision, hash and
+    state. No tool accepts a plan. A plan submitted here is never accepted
+    automatically: it stays PENDING_ACCEPTANCE (autoAcceptRefused is
+    "created_by_agent") until a person accepts it in Phoenix, whatever the
+    organisation's automatic acceptance setting says."""
     guard_write("submit patch plan")
-    if source != "llm":
+    if source not in ("mcp", "llm"):
         raise PhoenixError(
-            'source must be "llm"; Copilot plans are created with '
-            "phoenix_copilot_start_patch_plan")
-    return get_client().submit_patch_plan(asset_id, actions)
+            'source must be "mcp" ("llm" is accepted for older callers); '
+            "Copilot plans are created with phoenix_copilot_start_patch_plan")
+    return get_client().transport.request(
+        "POST", "/v1/autopatcher/plans",
+        json_body={"assetId": asset_id, "source": "mcp", "actions": actions})

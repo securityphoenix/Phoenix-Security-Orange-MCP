@@ -349,20 +349,32 @@ def test_copilot_start_sends_uuid_idempotency_key():
 
 
 @responses.activate
-def test_submit_patch_plan_posts_llm_plan():
+def test_submit_patch_plan_sends_mcp_source(monkeypatch):
+    _fake_keychain(monkeypatch)
     _mock_token()
     responses.post(f"{BASE}/v1/autopatcher/plans", json={"planId": "p1"})
     result = _json(_call("phoenix_submit_patch_plan", {
-        "asset_id": "a1", "source": "llm", "actions": [{"id": "x"}]}))
+        "asset_id": "a1", "source": "mcp", "actions": [{"id": "x"}]}))
     assert result["planId"] == "p1"
     assert json.loads(responses.calls[-1].request.body) == {
-        "assetId": "a1", "source": "llm", "actions": [{"id": "x"}]}
+        "assetId": "a1", "source": "mcp", "actions": [{"id": "x"}]}
+
+
+@responses.activate
+def test_submit_patch_plan_legacy_llm_argument_still_sends_mcp(monkeypatch):
+    _fake_keychain(monkeypatch)
+    _mock_token()
+    responses.post(f"{BASE}/v1/autopatcher/plans", json={"planId": "p1"})
+    _json(_call("phoenix_submit_patch_plan", {
+        "asset_id": "a1", "source": "llm", "actions": [{"id": "x"}]}))
+    assert json.loads(responses.calls[-1].request.body)["source"] == "mcp"
 
 
 @responses.activate
 def test_submit_patch_plan_refuses_copilot_source():
-    assert "llm" in _call_error("phoenix_submit_patch_plan", {
+    err = _call_error("phoenix_submit_patch_plan", {
         "asset_id": "a1", "source": "copilot", "actions": []})
+    assert "mcp" in err and "llm" in err
     assert len(responses.calls) == 0
 
 
