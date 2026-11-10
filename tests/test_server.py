@@ -241,6 +241,45 @@ def test_raw_api_still_allows_other_paths():
         "method": "GET", "path": "/v1/autopatcher/plans/p1"}))["planId"] == "p1"
 
 
+PLAN_PATHS = [
+    "/v1/autopatcher/plans",
+    "/v1/autopatcher/plans/",
+    "//v1/autopatcher/Plans/",
+    "/V1/AUTOPATCHER/PLANS",
+    "/v1/autopatcher/plans?x=1",
+    "/v1/autopatcher/plans#frag",
+    "/api/v1/autopatcher/plans",
+    "/API/v1/autopatcher/plans/",
+    "/v1/autopatcher%2Fplans",
+    "/v1/autopatcher/plans%2F",
+    "/v1/assets/../autopatcher/plans",
+    "/v1/autopatcher/plans/p1",
+    "/api/v1/autopatcher/Plans/p1/",
+    "/v1/autopatcher/plans%2Fp1",
+]
+
+
+@pytest.mark.parametrize("path", PLAN_PATHS)
+@responses.activate
+def test_raw_api_cannot_write_plans(path):
+    for method in ("POST", "PUT", "PATCH", "DELETE", "post"):
+        err = _call_error("phoenix_raw_api", {
+            "method": method, "path": path,
+            "json_body": {"source": "llm", "actions": []}})
+        assert "phoenix_submit_patch_plan" in err, (method, path, err)
+    assert len(responses.calls) == 0
+
+
+@responses.activate
+def test_raw_api_get_on_plan_routes_still_works():
+    _mock_token()
+    responses.get(f"{BASE}/v1/autopatcher/plans", json={"plans": []})
+    responses.get(f"{BASE}/v1/autopatcher/plans/p1", json={"planId": "p1"})
+    for path in ("/v1/autopatcher/plans", "/v1/autopatcher/plans?x=1",
+                 "/v1/autopatcher/plans/p1"):
+        assert _json(_call("phoenix_raw_api", {"method": "GET", "path": path}))
+
+
 @pytest.mark.parametrize("path", [
     "/v1/auth/device/approve",
     "/v1/auth/device",
@@ -422,3 +461,76 @@ def test_autopatch_findings_one_page():
     assert result["total"] == 301
     url = responses.calls[-1].request.url
     assert "page=2" in url and "size=100" in url
+
+
+# -- AC-2: caller ids must never reach a URL path unchecked --------------------
+
+BAD_IDS = ["../../users", "a/b", "a?x=1", "%2e%2e", "", "a" * 200,
+           "a b", "a#f", "a\n", ".."]
+GOOD_IDS = ["123e4567-e89b-12d3-a456-426614174000", "job_123"]
+
+# tool -> (argument carrying the id, other required arguments)
+ID_TOOLS = {
+    "phoenix_get_asset": ("asset_id", {}),
+    "phoenix_get_finding": ("finding_id", {}),
+    "phoenix_get_application": ("application_id", {}),
+    "phoenix_get_application_posture": ("application_id", {}),
+    "phoenix_get_component_posture": ("component_id", {}),
+    "phoenix_get_team_members": ("team_id", {}),
+    "phoenix_get_campaign_stats": ("campaign_id", {}),
+    "phoenix_patch_plan": ("plan_id", {}),
+    "phoenix_latest_accepted_patch_plan": ("asset_id", {}),
+    "phoenix_copilot_job_status": ("job_id", {}),
+    "phoenix_copilot_patch_plan": ("plan_id", {}),
+    "phoenix_autopatch_findings": ("asset_id", {}),
+    "phoenix_add_asset_tags": ("asset_id", {"tags": ["a:b"]}),
+    "phoenix_remove_asset_tags": ("asset_id", {"tags": ["a:b"]}),
+    "phoenix_close_finding": ("finding_id", {"assessment_name": "x"}),
+    "phoenix_add_application_tags": ("application_id", {"tags": ["a:b"]}),
+    "phoenix_add_component_rules": ("component_id", {"rules": []}),
+    "phoenix_add_team_members": ("team_id", {"users": ["a@b.co"]}),
+    "phoenix_set_team_auto_link_tags": ("team_id", {"tags": ["a:b"]}),
+    "phoenix_copilot_start_patch_plan": ("asset_id", {}),
+}
+
+
+@pytest.mark.parametrize("bad", BAD_IDS)
+@pytest.mark.parametrize("tool", sorted(ID_TOOLS))
+@responses.activate
+def test_path_ids_are_refused_before_any_http_call(tool, bad):
+    arg, extra = ID_TOOLS[tool]
+    err = _call_error(tool, {arg: bad, **extra})
+    assert "invalid" in err and arg in err, err
+    assert len(responses.calls) == 0
+
+
+@responses.activate
+def test_team_auto_link_scope_is_checked():
+    err = _call_error("phoenix_set_team_auto_link_tags", {
+        "team_id": "t1", "tags": ["a:b"], "scope": "../../users"})
+    assert "invalid scope" in err
+    assert len(responses.calls) == 0
+
+
+@pytest.mark.parametrize("good", GOOD_IDS)
+@responses.activate
+def test_normal_ids_still_reach_the_api(good):
+    _mock_token()
+    responses.get(f"{BASE}/v1/copilot/jobs/{good}", json={"state": "DONE"})
+    responses.get(f"{BASE}/v1/copilot/patch-plans/{good}", json={"planId": good})
+    responses.get(f"{BASE}/v1/autopatcher/plans/{good}", json={"planId": good})
+    responses.get(f"{BASE}/v1/autopatcher/assets/{good}/findings",
+                  json={"findings": [], "total": 0})
+    assert _json(_call("phoenix_copilot_job_status", {"job_id": good}))["state"] == "DONE"
+    assert _json(_call("phoenix_copilot_patch_plan", {"plan_id": good}))["planId"] == good
+    assert _json(_call("phoenix_patch_plan", {"plan_id": good}))["planId"] == good
+    assert _json(_call("phoenix_autopatch_findings", {"asset_id": good}))["total"] == 0
+
+
+@responses.activate
+def test_asset_lookup_host_and_ip_are_query_values_not_checked():
+    _mock_token()
+    responses.get(f"{BASE}/v1/autopatcher/assets/lookup", json={"matches": []})
+    _call("phoenix_asset_lookup", {"hostname": "web-01.example.com",
+                                   "ip": "10.0.0.1"})
+    assert "/v1/autopatcher/assets/lookup" in responses.calls[-1].request.url

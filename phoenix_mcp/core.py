@@ -83,6 +83,26 @@ def guard_write(operation: str):
             "mode (PHOENIX_MCP_READ_ONLY=true). Unset it to allow writes.")
 
 
+_SAFE_ID = re.compile(r"[A-Za-z0-9_-]{1,128}")
+
+
+def safe_id(value, name: str = "id", optional: bool = False):
+    """Return ``value`` if it is safe to put in a URL path, else raise.
+
+    Accepts only letters, digits, ``_`` and ``-`` (1 to 128 characters, so
+    UUIDs fit). Everything else (``/``, ``.``, ``?``, ``%``, spaces, empty
+    text, long text) is refused before any HTTP call. ``optional=True`` lets
+    ``None`` through for arguments that may be left out.
+    """
+    if value is None and optional:
+        return None
+    if not isinstance(value, str) or not _SAFE_ID.fullmatch(value):
+        raise PhoenixError(
+            f"invalid {name}: use only letters, digits, '_' and '-' "
+            "(1 to 128 characters). Nothing was sent to Phoenix.")
+    return value
+
+
 def cap(limit):
     """Clamp requested limits so a tool call can't flood the context."""
     ceiling = default_max_items()
@@ -155,9 +175,40 @@ def is_allowed_path(path: str) -> bool:
                for p in _ALLOWED_PREFIXES)
 
 
-def guard_person_only(path: str):
+PLAN_WRITE_MESSAGE = (
+    "phoenix_raw_api blocked: only GET is allowed on /v1/autopatcher/plans. "
+    "To submit a plan use phoenix_submit_patch_plan (it sends source 'mcp', "
+    "which Phoenix never auto-accepts).")
+_PLAN_ROUTE = re.compile(r"^/v1/autopatcher/plans(/.*)?$")
+
+
+def is_plan_write(method: str, path: str) -> bool:
+    """True for a non-GET call on ``/v1/autopatcher/plans`` or below it.
+
+    Same normalisation as the other guards (one decode, slashes, dot
+    segments, case, trailing slash, ``/api`` prefix, ``?``/``#``). A path
+    that still holds ``%`` after one decode is treated as a plan route.
+    """
+    if (method or "").upper() == "GET":
+        return False
+    path = re.split(r"[?#]", path or "", maxsplit=1)[0]
+    path = unquote(path)
+    if "%" in path:
+        return True
+    path = re.sub(r"/+", "/", path)
+    if not path.startswith("/"):
+        path = "/" + path
+    path = posixpath.normpath(path).rstrip("/").lower()
+    if path.startswith("/api/"):
+        path = path[4:]
+    return bool(_PLAN_ROUTE.match(path))
+
+
+def guard_person_only(path: str, method: str = "GET"):
     if is_person_only_path(path):
         raise PhoenixError(PERSON_ONLY_MESSAGE)
+    if is_plan_write(method, path):
+        raise PhoenixError(PLAN_WRITE_MESSAGE)
     if not is_allowed_path(path):
         raise PhoenixError(
             "phoenix_raw_api blocked: path is not on the allowlist of /v1 "
