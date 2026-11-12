@@ -289,7 +289,7 @@ def phoenix_autopatch_findings(asset_id: str, page: int = 0) -> dict:
     """Read-only. One page of the open findings of an asset, for patch
     planning: id, title, remedyText, product, fixedVersion, versionOperator.
     Pages start at 0; the page size follows PHOENIX_MCP_MAX_ITEMS (default
-    100). The reply carries page, size and total, so call again with the next
+    100, capped at 1000). The reply carries page, size and total, so call again with the next
     page until you have them all."""
     asset_id = safe_id(asset_id, "asset_id")
     size = min(cap(None), 1000)

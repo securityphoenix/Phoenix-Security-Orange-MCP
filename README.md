@@ -11,7 +11,7 @@ covering Phoenix REST API **Enterprise v1.27**.
 
 ## What your AI agent can do
 
-**Read / analyse (16 tools)**
+**Read / analyse (23 tools)**
 
 - `phoenix_search_findings` — every v1.27 filter: severity, CVE, EPSS, SLA breach, scanner, tags, teams…
 - `phoenix_search_assets`, `phoenix_get_asset`, `phoenix_get_finding`
@@ -24,7 +24,7 @@ covering Phoenix REST API **Enterprise v1.27**.
 - Autopatcher and Copilot patch plans (each needs its feature switched on for the organisation): `phoenix_asset_lookup`, `phoenix_patch_policy`, `phoenix_patch_plan`, `phoenix_latest_accepted_patch_plan`, `phoenix_autopatch_findings`, `phoenix_copilot_job_status`, `phoenix_copilot_patch_plan`
 - `phoenix_test_connection`
 
-**Write / automate (20 tools, disable with `PHOENIX_MCP_READ_ONLY=true`)**
+**Write / automate (22 tools, disable with `PHOENIX_MCP_READ_ONLY=true`)**
 
 - Asset lifecycle: `phoenix_create_asset`, `phoenix_update_asset` (additive edit), `phoenix_enrich_asset`, `phoenix_add_asset_tags`, `phoenix_remove_asset_tags`
 - Vulnerability lifecycle: `phoenix_add_finding` (delta), `phoenix_close_finding` (merge workaround, dry-run support), `phoenix_enrich_finding`, bulk `phoenix_import_assets`
@@ -42,6 +42,12 @@ Example prompts once installed:
 
 Requires Python 3.10+ and [uv](https://docs.astral.sh/uv/) (or pipx/pip).
 Create API credentials in Phoenix under **Organisation → API Access**.
+
+The server pins `phoenix-security-cli` to a specific commit. `uvx` fetches that
+commit fresh. If you install with `pip` over an existing `phoenix-security-cli`
+1.3.0 from another commit, pip keeps the old copy (same version number) and the
+patch plan tools fail with `AttributeError`. Add `--force-reinstall
+phoenix-security-cli` (or `--upgrade --force-reinstall`) to refresh it.
 
 ### Claude Code
 
