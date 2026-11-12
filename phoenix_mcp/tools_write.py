@@ -4,9 +4,12 @@ structure (apps/components/rules), teams and users.
 All tools honour PHOENIX_MCP_READ_ONLY=true (they refuse with a clear error).
 """
 
+import uuid
 from typing import Optional
 
-from phoenix_mcp.core import get_client, guard_write, mcp
+from phoenix_cli.errors import PhoenixError
+
+from phoenix_mcp.core import get_client, guard_write, mcp, safe_id
 
 
 # -- assets -------------------------------------------------------------------
@@ -86,6 +89,7 @@ def phoenix_add_asset_tags(
     """Add tags ("key:value" or bare "value") to one asset (asset_id) or
     many (asset_ids). To remove tags, use phoenix_remove_asset_tags."""
     guard_write("add asset tags")
+    asset_id = safe_id(asset_id, "asset_id", optional=True)
     result = get_client().add_asset_tags(tags, asset_id=asset_id,
                                          asset_ids=asset_ids)
     return result or {"status": "ok"}
@@ -105,6 +109,7 @@ def phoenix_remove_asset_tags(
     rejects the whole request. Returns per asset-tag results with status
     DELETED|SOURCE_REMOVED|PROTECTED|NOT_FOUND and remainingOwnership."""
     guard_write("remove asset tags")
+    asset_id = safe_id(asset_id, "asset_id", optional=True)
     return get_client().remove_asset_tags(tags, asset_id=asset_id,
                                           asset_ids=asset_ids)
 
@@ -144,6 +149,7 @@ def phoenix_close_finding(
     inspect the payload. For a real status API, see phoenix_api_gaps
     requiredEndpoints."""
     guard_write("close finding")
+    finding_id = safe_id(finding_id, "finding_id")
     return get_client().close_finding(finding_id, assessment_name,
                                       dry_run=dry_run)
 
@@ -230,6 +236,7 @@ def phoenix_add_application_tags(
 ) -> dict:
     """Add tags to an application/environment (by ID or name)."""
     guard_write("add application tags")
+    application_id = safe_id(application_id, "application_id", optional=True)
     result = get_client().add_application_tags(
         tags, application_id=application_id, name=name)
     return result or {"status": "ok"}
@@ -263,6 +270,7 @@ def phoenix_add_component_rules(
     resourceGroup|assetType|cidrs|ipRanges|hostnames|osNames|netbios|fqdn|
     repository, negateFilter?}}. reset_rules=true replaces all existing rules."""
     guard_write("add component rules")
+    component_id = safe_id(component_id, "component_id", optional=True)
     result = get_client().add_component_rules(
         rules, component_id=component_id, app_name=app_name,
         component_name=component_name, reset_rules=reset_rules)
@@ -303,6 +311,7 @@ def phoenix_add_team_members(
     auto_create_users=true creates unknown emails as Org Users instead of
     failing."""
     guard_write("add team members")
+    team_id = safe_id(team_id, "team_id", optional=True)
     result = get_client().add_team_members(
         users, team_id=team_id, team_name=team_name,
         auto_create_users=auto_create_users)
@@ -319,6 +328,8 @@ def phoenix_set_team_auto_link_tags(
     """Configure tags that auto-link applications (scope='applications') or
     components (scope='components') to a team. match: ANY or ALL."""
     guard_write("set team auto-link tags")
+    team_id = safe_id(team_id, "team_id")
+    scope = safe_id(scope, "scope")
     result = get_client().set_auto_link_tags(team_id, scope, tags, match=match)
     return result or {"status": "ok"}
 
@@ -352,3 +363,47 @@ def phoenix_set_users_active(
         get_client().deactivate_users(ids=ids, emails=emails)
     return {"status": "activated" if active else "deactivated",
             "emails": emails or [], "ids": ids or []}
+
+
+# -- autopatcher and Copilot patch plans --------------------------------------
+
+@mcp.tool()
+def phoenix_copilot_start_patch_plan(asset_id: str) -> dict:
+    """Write (refused in read-only mode). Ask Copilot to build a patch plan
+    for an asset. Starts a background job and returns {"jobId": ...}; follow
+    it with phoenix_copilot_job_status, then read the plan with
+    phoenix_copilot_patch_plan. No tool accepts a plan. A person accepts it
+    in Phoenix, unless the organisation turned on automatic acceptance for
+    the asset's usage and every action is auto: then Phoenix accepts it at
+    creation with no person, and a headless autopatcher run on that machine
+    applies it. Needs the Copilot external API and AI consent for the
+    organisation."""
+    guard_write("start Copilot patch plan")
+    asset_id = safe_id(asset_id, "asset_id")
+    job_id = get_client().start_patch_plan(asset_id, str(uuid.uuid4()))
+    return {"jobId": job_id}
+
+
+@mcp.tool()
+def phoenix_submit_patch_plan(
+    asset_id: str,
+    source: str,
+    actions: list[dict],
+) -> dict:
+    """Write (refused in read-only mode). Submit a patch plan you wrote for an
+    asset. source: pass "mcp" ("llm" is still accepted for older callers;
+    either way Phoenix stores the plan with source "mcp", because an agent
+    wrote it). Copilot plans come from phoenix_copilot_start_patch_plan.
+    actions: catalog actions, at most 200. Returns planId, revision, hash and
+    state. No tool accepts a plan. A plan submitted here is never accepted
+    automatically: it stays PENDING_ACCEPTANCE (autoAcceptRefused is
+    "created_by_agent") until a person accepts it in Phoenix, whatever the
+    organisation's automatic acceptance setting says."""
+    guard_write("submit patch plan")
+    if source not in ("mcp", "llm"):
+        raise PhoenixError(
+            'source must be "mcp" ("llm" is accepted for older callers); '
+            "Copilot plans are created with phoenix_copilot_start_patch_plan")
+    return get_client().transport.request(
+        "POST", "/v1/autopatcher/plans",
+        json_body={"assetId": asset_id, "source": "mcp", "actions": actions})

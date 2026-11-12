@@ -11,7 +11,7 @@ covering Phoenix REST API **Enterprise v1.27**.
 
 ## What your AI agent can do
 
-**Read / analyse (16 tools)**
+**Read / analyse (23 tools)**
 
 - `phoenix_search_findings` — every v1.27 filter: severity, CVE, EPSS, SLA breach, scanner, tags, teams…
 - `phoenix_search_assets`, `phoenix_get_asset`, `phoenix_get_finding`
@@ -20,14 +20,16 @@ covering Phoenix REST API **Enterprise v1.27**.
 - `phoenix_list_teams`, `phoenix_get_team_members`, `phoenix_list_users`
 - `phoenix_get_campaign_stats` — aggregated campaign statistics (risk, finding/asset/SLA counts, ticket summary) by campaign ID (post-v1.27)
 - `phoenix_api_gaps` — tells the agent what the API **cannot** do, with workarounds AND the required-endpoints wishlist ([full spec](https://github.com/Security-Phoenix-demo/Phoenix-Security-CLI/blob/main/docs/REQUIRED_ENDPOINTS.md)), so it never guesses
-- `phoenix_raw_api` — authenticated escape hatch for any `/v1` endpoint
+- `phoenix_raw_api` — authenticated escape hatch for any `/v1` endpoint (refuses the routes that accept an autopatcher plan or confirm an asset usage: a person does that in Phoenix)
+- Autopatcher and Copilot patch plans (each needs its feature switched on for the organisation): `phoenix_asset_lookup`, `phoenix_patch_policy`, `phoenix_patch_plan`, `phoenix_latest_accepted_patch_plan`, `phoenix_autopatch_findings`, `phoenix_copilot_job_status`, `phoenix_copilot_patch_plan`
 - `phoenix_test_connection`
 
-**Write / automate (20 tools, disable with `PHOENIX_MCP_READ_ONLY=true`)**
+**Write / automate (22 tools, disable with `PHOENIX_MCP_READ_ONLY=true`)**
 
 - Asset lifecycle: `phoenix_create_asset`, `phoenix_update_asset` (additive edit), `phoenix_enrich_asset`, `phoenix_add_asset_tags`, `phoenix_remove_asset_tags`
 - Vulnerability lifecycle: `phoenix_add_finding` (delta), `phoenix_close_finding` (merge workaround, dry-run support), `phoenix_enrich_finding`, bulk `phoenix_import_assets`
 - Structure: `phoenix_create_application`, `phoenix_update_application`, `phoenix_add_application_tags`, `phoenix_create_component`, `phoenix_add_component_rules`, `phoenix_link_repository`
+- Patch plans: `phoenix_copilot_start_patch_plan`, `phoenix_submit_patch_plan`. No tool accepts a plan or sets an asset usage. A person accepts a plan in Phoenix, except when the organisation turned on automatic acceptance for the asset's usage: then Phoenix accepts a new plan whose actions are all `auto` at creation, except a plan submitted through `phoenix_submit_patch_plan`: it is stored with source `mcp` and always waits for a person (`autoAcceptRefused` is `created_by_agent`). A plan built by Copilot, the autopatcher client or the CLI can be accepted by policy, and a headless autopatcher run on that machine then applies it with no person having seen it.
 - People: `phoenix_create_team`, `phoenix_add_team_members`, `phoenix_set_team_auto_link_tags`, `phoenix_create_user`, `phoenix_set_users_active`
 
 Example prompts once installed:
@@ -40,6 +42,12 @@ Example prompts once installed:
 
 Requires Python 3.10+ and [uv](https://docs.astral.sh/uv/) (or pipx/pip).
 Create API credentials in Phoenix under **Organisation → API Access**.
+
+The server pins `phoenix-security-cli` to a specific commit. `uvx` fetches that
+commit fresh. If you install with `pip` over an existing `phoenix-security-cli`
+1.3.0 from another commit, pip keeps the old copy (same version number) and the
+patch plan tools fail with `AttributeError`. Add `--force-reinstall
+phoenix-security-cli` (or `--upgrade --force-reinstall`) to refresh it.
 
 ### Claude Code
 
