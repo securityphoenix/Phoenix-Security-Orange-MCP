@@ -163,6 +163,11 @@ def is_allowed_path(path: str) -> bool:
     path = unquote(path)
     if "%" in path or ";" in path or "\\" in path or "://" in path:
         return False
+    # A dot segment is never needed. Refuse it before slashes collapse: an
+    # HTTP client resolves "a//../b" to "a/b", a different route than the
+    # collapsed text "b" this guard would otherwise check.
+    if any(seg in (".", "..") for seg in path.split("/")):
+        return False
     path = re.sub(r"/+", "/", path)
     if not path.startswith("/"):
         return False
@@ -179,11 +184,13 @@ PLAN_WRITE_MESSAGE = (
     "phoenix_raw_api blocked: only GET is allowed on /v1/autopatcher/plans. "
     "To submit a plan use phoenix_submit_patch_plan (it sends source 'mcp', "
     "which Phoenix never auto-accepts).")
-_PLAN_ROUTE = re.compile(r"^/v1/autopatcher/plans(/.*)?$")
+_PLAN_ROUTE = re.compile(
+    r"^/v1/autopatcher/(plans|assets/[^/]+/plans)(/.*)?$")
 
 
 def is_plan_write(method: str, path: str) -> bool:
-    """True for a non-GET call on ``/v1/autopatcher/plans`` or below it.
+    """True for a non-GET call on ``/v1/autopatcher/plans`` or below it, or
+    on ``/v1/autopatcher/assets/{id}/plans`` or below it.
 
     Same normalisation as the other guards (one decode, slashes, dot
     segments, case, trailing slash, ``/api`` prefix, ``?``/``#``). A path

@@ -8,6 +8,8 @@ import responses
 
 import phoenix_mcp.tools_read  # noqa: F401 — registers tools
 import phoenix_mcp.tools_write  # noqa: F401
+from mcp.server.fastmcp.exceptions import ToolError
+
 from phoenix_mcp import core
 from phoenix_mcp.core import mcp
 
@@ -182,7 +184,7 @@ PERSON_ONLY = "this action needs a person in Phoenix"
 def _call_error(name, args):
     try:
         return _text(_call(name, args))
-    except Exception as exc:  # FastMCP wraps tool errors
+    except ToolError as exc:  # FastMCP wraps tool errors
         return str(exc)
 
 
@@ -254,6 +256,8 @@ PLAN_PATHS = [
     "/v1/autopatcher/plans%2F",
     "/v1/assets/../autopatcher/plans",
     "/v1/autopatcher/plans/p1",
+    "/v1/autopatcher/assets/a1/plans",
+    "/v1/autopatcher/assets/a1/plans/latest-accepted",
     "/api/v1/autopatcher/Plans/p1/",
     "/v1/autopatcher/plans%2Fp1",
 ]
@@ -287,6 +291,11 @@ def test_raw_api_get_on_plan_routes_still_works():
     "/v1/autopatcher/plans/p1/accept.json",
     "/v1/autopatcher/plans/p1/approve",
     "/v1/autopatcher/assets/a1/usage;x=1",
+    "/v1/autopatcher/assets/a1//../usage",
+    "/v1/autopatcher/plans/p1//../accept",
+    "/v1/autopatcher/plans/p1/./accept",
+    ":443/v1/autopatcher/assets/a1/usage",
+    ":443/v1/autopatcher/plans/p1/accept",
     "/v1/autopatcher\\plans\\p1\\accept",
     "https://evil.example/v1/assets",
     "v1/assets",
@@ -299,8 +308,26 @@ def test_raw_api_get_on_plan_routes_still_works():
 def test_raw_api_refuses_paths_off_the_allowlist(path):
     for method in ("GET", "POST"):
         err = _call_error("phoenix_raw_api", {"method": method, "path": path})
-        assert "blocked" in err or PERSON_ONLY in err
+        assert ("blocked" in err or PERSON_ONLY in err
+                or "plain /v1 path" in err), err
     assert len(responses.calls) == 0
+
+
+@pytest.mark.parametrize("path", [
+    "/v1/autopatcher/assets/a1//../usage",
+    "/v1/autopatcher/plans/p1//../accept",
+    "/v1/autopatcher/plans/p1/./accept",
+    "/v1/assets/../autopatcher/policy",
+    ":443/v1/autopatcher/assets/a1/usage",
+])
+def test_guard_alone_refuses_dot_segments_and_non_rooted_paths(path):
+    """The allowlist does not rely on the CLI client's own path check: a
+    dot segment (even after repeated slashes) or a path with no leading
+    slash is refused by the guard itself."""
+    assert not core.is_allowed_path(path)
+    for method in ("GET", "POST"):
+        with pytest.raises(core.PhoenixError):
+            core.guard_person_only(path, method)
 
 
 @pytest.mark.parametrize("path", [
